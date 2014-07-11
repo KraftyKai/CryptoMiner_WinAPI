@@ -161,3 +161,4 @@ Project1
 #Ignore Vis Studio Files
 *.vcxproj
 *.vcxproj*
+*.sln
