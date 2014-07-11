@@ -159,5 +159,5 @@ $RECYCLE.BIN/
 Project1
 
 #Ignore Vis Studio Files
-.vcxproj
-.vcxproj*
+*.vcxproj
+*.vcxproj*
