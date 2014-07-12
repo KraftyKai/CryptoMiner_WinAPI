@@ -20,11 +20,20 @@ private:
 	int port;
 	std::string host;
 	MsgQueue *requests = new MsgQueue();
+	PROCESS_INFORMATION process;
 	
-	virtual char *ConstructCommandLine( char *path) {
-		//TODO: Adjust balls.
-		return "Ballss";
+	virtual LPSTR ConstructCommandLine( char *path) 
+	{
+		// COMPILER NOTE: Older compilers do not gaurantee contiguous assignment 
+		// of std::string in memory.  BE AWARE!  Do NOT use char* type instead as
+		// the calling method requires returned value be a mutable string. 
+		std::string fullPath = path;
+		fullPath += " --api-allow W:127.0.0.1";
+		fullPath += "\0";
+		return &fullPath[0];
 	}
+
+	void CheckStop();
 
 public:
 	BaseMiner();
@@ -64,7 +73,14 @@ public:
 
 	void Start(char *path);
 
-	virtual void Stop() { return; }
+	virtual void Stop() 
+	{ 
+		requests->Insert("quit", NULL);
+		//TODO Add commit method call
+		void CheckStop();  //Waits for and validates process termination (blocking)
+		CloseHandle(process.hProcess);
+		CloseHandle(process.hThread);
+	}
 
 	virtual void Suspend() { return; }
 
@@ -99,7 +115,15 @@ void BaseMiner::SetHost(char *apiHostIP)
 
 void BaseMiner::Start(char *path)
 {
-	TCHAR fullArg = ConstructCommandLine(path); // Full Command Line Argument to pass
+	LPDWORD exitCode;
+	DWORD result;
+	if ((result = WaitForSingleObject(process.hProcess, 0)) != WAIT_OBJECT_0 && result != WAIT_FAILED)
+	{
+		throw std::runtime_error("Previous miner process is not terminated");
+		return;
+	}
+	
+	LPSTR fullArg = ConstructCommandLine(path); // Full Command Line Argument to pass
 
 	STARTUPINFO si;
 	PROCESS_INFORMATION pi;
@@ -124,8 +148,30 @@ void BaseMiner::Start(char *path)
 		throw std::runtime_error("failed to create new process on miner startup");
 		return;
 	}
+
+	process = pi;
 }
 
+void BaseMiner::CheckStop()
+{
+	DWORD result;
+	//If application is still open...
+	if ((result = WaitForSingleObject(process.hProcess, 0)) == WAIT_TIMEOUT)
+	{
+		// Wait too see if application closes for up to 90 seconds. 
+		for (int i = 0; i < 10 && (result = WaitForSingleObject(process.hProcess, 90000)) == WAIT_TIMEOUT; i++);
+	}
+
+	// If it's STILL open try to force termination.  If after another 90s wait still failing, throw exception
+	if (result == WAIT_TIMEOUT)
+	{
+		TerminateProcess(process.hProcess, 0);
+
+		if (WaitForSingleObject(process.hProcess, 90000) == WAIT_TIMEOUT)
+			throw std::runtime_error("Miner application failed to stop");
+	}
+	return;
+}
 bool BaseMiner::SendToMiner(char *sendbuf, char **returnbuf, int returnbuflen)
 {
 	WSADATA wsaData;
