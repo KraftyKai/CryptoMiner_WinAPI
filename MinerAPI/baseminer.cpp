@@ -272,6 +272,7 @@ bool BaseMiner::SendToMiner(char *sendbuf, char **returnbuf, int returnbuflen)
 
 
 //Main function for testing only
+
 int main()
 {
   int const msg_size = 2000;
@@ -283,15 +284,16 @@ int main()
 
   char *sendptr = send;
   char *msgptr = msg;
-  try{
+ // try{
     result = miner.SendToMiner( NULL, &msgptr, msg_size);
-  }
+  //}
 
-  catch (std::exception& e) {
-    std::cout << e.what();
-  }
+ // catch (std::exception& e) {
+    //std::cout << e.what();
+  //}
 
   if (result)
 	std::cout << msg << std::endl;
 
 }
+
