@@ -162,3 +162,7 @@ Project1
 *.vcxproj
 *.vcxproj*
 *.sln
+
+#Ignore local testing files
+Unit_Tests.exe
+ 

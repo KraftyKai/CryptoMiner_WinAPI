@@ -6,8 +6,7 @@
 #include <stdexcept>
 #include <iostream>
 #include <string>
-
-#include "msgstore.h"
+#include "baseminer.h"
 
 #pragma comment(lib, "Ws2_32.lib")
 #pragma comment(lib, "Mswsock.lib")
@@ -15,79 +14,7 @@
 
 #define BUFFER_LEN 512
 
-class BaseMiner {
-private:
-	int port;
-	std::string host;
-	MsgQueue *requests = new MsgQueue();
-	PROCESS_INFORMATION process;
-	
-	virtual LPSTR ConstructCommandLine( char *path) 
-	{
-		// COMPILER NOTE: Older compilers do not gaurantee contiguous assignment 
-		// of std::string in memory.  BE AWARE!  Do NOT use char* type instead as
-		// the calling method requires returned value be a mutable string. 
-		std::string fullPath = path;
-		fullPath += " --api-allow W:127.0.0.1";
-		fullPath += "\0";
-		return &fullPath[0];
-	}
 
-	void CheckStop();
-
-public:
-	BaseMiner();
-	BaseMiner(char*, int);
-
-	void SetPort(int apiPort);
-
-	void SetHost(char *apiHostIP);
-	
-	/*
-	** Send prepared JSON char buffer to miner API via TCP/IP
-	** char *sendbuf = pointer to buffer to send on connect
-	** char **returnbuf = pointer to pointer of char buffer for return msg
-	** int returnbuflen = sizeof(**returnbuf)
-	*/
-	bool SendToMiner(char *sendbuf, char **returnbuf, int returnbuflen);
-
-	virtual void ConfigPool(char *serverURL, char *username,
-		char *password, int port)
-	{
-		if (serverURL == NULL)
-			return;
-
-		//Prepare parameters in format "URL:PORT,USR,PASS
-		std::string param;
-		param = serverURL;
-		param += ":";
-		param += std::to_string(port);
-		param += ",";
-		param += username;
-		param += ",";
-		param += password;
-		
-		requests->Insert("addpool", (char*)param.c_str());
-		//TODO Add commit method call.
-	}
-
-	void Start(char *path);
-
-	virtual void Stop() 
-	{ 
-		requests->Insert("quit", NULL);
-		//TODO Add commit method call
-		void CheckStop();  //Waits for and validates process termination (blocking)
-		CloseHandle(process.hProcess);
-		CloseHandle(process.hThread);
-	}
-
-	virtual void Suspend() { return; }
-
-	virtual void GetHashRate() { return; }
-
-
-};
 
 BaseMiner::BaseMiner() {
 	host = "127.0.0.1";
@@ -113,24 +40,26 @@ void BaseMiner::SetHost(char *apiHostIP)
 	host = apiHostIP;
 }
 
-void BaseMiner::Start(char *path)
+bool BaseMiner::Start(char *path)
 {
 	LPDWORD exitCode;
 	DWORD result;
 	if ((result = WaitForSingleObject(process.hProcess, 0)) != WAIT_OBJECT_0 && result != WAIT_FAILED)
 	{
 		throw std::runtime_error("Previous miner process is not terminated");
-		return;
+		return false;
 	}
 	
+	// In the morning try this - change this function to return a string, cast that string as LPSTR instead.  See if it works...
 	LPSTR fullArg = ConstructCommandLine(path); // Full Command Line Argument to pass
-
 	STARTUPINFO si;
 	PROCESS_INFORMATION pi;
 
 	ZeroMemory(&si, sizeof(si));
 	si.cb = sizeof(si);
 	ZeroMemory(&pi, sizeof(pi));
+
+	std::cout << std::endl << fullArg;
 
 	if (!CreateProcess(
 		NULL,		// No module name (use purely command line)
@@ -146,10 +75,11 @@ void BaseMiner::Start(char *path)
 		)
 	{
 		throw std::runtime_error("failed to create new process on miner startup");
-		return;
+		return false;
 	}
 
 	process = pi;
+	return true;
 }
 
 void BaseMiner::CheckStop()
@@ -273,7 +203,7 @@ bool BaseMiner::SendToMiner(char *sendbuf, char **returnbuf, int returnbuflen)
 
 //Main function for testing only
 
-int main()
+/*int main()
 {
   int const msg_size = 2000;
   BaseMiner miner ("10.0.0.10", 3490);
@@ -295,5 +225,5 @@ int main()
   if (result)
 	std::cout << msg << std::endl;
 
-}
+}*/
 
