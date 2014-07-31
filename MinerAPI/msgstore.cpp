@@ -1,65 +1,60 @@
 #include <string>
+#include "msgstore.h"
 
-class MsgStore {
-private:
-	std::string setting;
-	std::string parameter;
-	MsgStore *next;
+//Begin MsgStore class methods
 
-	MsgStore() {
-		next = NULL;
+void MsgStore::SetRequest(std::string sett, std::string param) 
+{
+	setting = sett;
+	parameter = param;
+}
+
+void MsgStore::SetNext(MsgStore *assigned_next) 
+{
+	next = assigned_next;
+}
+
+std::string MsgStore::GetRequest()
+{
+	std::string result = "{\"command\":\"" + setting + "\"";
+	if (!parameter.empty())
+		result += ", \"parameter\":\"" + parameter + "\"";
+	result += "}";
+	return result;
+}
+
+// Begin MsgQueue class methods
+
+MsgQueue::MsgQueue() 
+{
+	head = nullptr;
+	tail = nullptr;
+}
+
+MsgQueue::~MsgQueue() {
+	while (head != nullptr)
+	{
+		MsgStore *temp = head;
+		head = head->Next();
+		delete(temp);
 	}
-	void SetRequest(char *sett, char *param) {
-		setting = sett;
-		parameter = param;
-	}
-	void SetNext(MsgStore *assigned_next) {
-		next = assigned_next; 
-	}
-	const char *GetRequest() {
-		std::string result = "{\"command\":\"" + setting + "\"";
-		if (!parameter.empty())
-			result += ", \"parameter\":\"" + parameter + "\"";
-		result += "}";
-		return result.c_str();
-	}
-	MsgStore *Next() { return next; }
-	friend class MsgQueue;
-};
+}
 
-class MsgQueue {
-	MsgStore *head;
-	MsgStore *tail;
-public:
-	MsgQueue() {
-		head = NULL;
-		tail = NULL;
-	}
-	~MsgQueue() {
-		while (head != NULL)
-		{
-			MsgStore *temp = head;
-			head = head->Next();
-			delete(temp);
-		}
-	}
-
-	void Insert(char*, char*);
-
-	std::string Pop();
-
-	std::string Peak();
-
-
-};
-
-void MsgQueue::Insert(char *sett, char *param)
+void MsgQueue::Insert(char* sett, char* param)
 {
 	MsgStore *newStore = new MsgStore();
-	newStore->SetRequest(sett, param);
 
-	if (head == NULL) {
+	if (sett == nullptr)
+		throw std::runtime_error("MsgQueue::Insert Null setting was passed.");
+
+	if (param == nullptr)
+		newStore->SetRequest(std::string(sett), "");
+	else
+		newStore->SetRequest(std::string(sett), std::string(param));
+
+	if (head == nullptr) {
 		head = newStore;
+		tail = newStore;
 	}
 	else {
 		tail->SetNext(newStore);
@@ -70,8 +65,11 @@ void MsgQueue::Insert(char *sett, char *param)
 std::string MsgQueue::Pop()
 {
 	std::string result = head->GetRequest();
-	MsgStore *temp = head->Next();
-	head = temp;
+	if (head == nullptr)
+		return result;
+
+	MsgStore *temp = head;
+	head = head->next;
 	delete(temp);
 	return result;
 }
